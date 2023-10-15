@@ -1,0 +1,40 @@
+.button-menu {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 0;
+  right: 0;
+
+  ::ng-deep .mat-mdc-fab, .mat-mdc-mini-fab {
+    background-color: white;
+    color: black;
+  }
+
+  ::ng-deep .mat-mdc-fab:hover, .mat-mdc-mini-fab:hover {
+    background-color: #f5f1e6;
+    color: black;
+  }
+}
+
+.form-fields {
+  position: absolute;
+  left: 0.6rem;
+  top: 4rem;
+  height: 100%;
+  max-height: calc(100vh - 8rem);
+  background-color: white;
+  padding: 1rem;
+  border-radius: 4px;
+  box-shadow: rgba(0, 0, 0, 0.3) 0px 1px 4px -1px;
+}
+
+.overflow-y {
+  overflow-y: auto;
+}
+
+.form-btns {
+  padding: 1rem 1rem;
+}
+
+.fields-wrapper {
+  margin-bottom: 1rem;
+}
