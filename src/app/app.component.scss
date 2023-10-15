@@ -38,3 +38,14 @@
 .fields-wrapper {
   margin-bottom: 1rem;
 }
+
+.loading {
+  position: absolute;
+  right: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  top: 50vh;
+  width: 16rem;
+  text-align: center;
+}

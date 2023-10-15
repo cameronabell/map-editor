@@ -1,20 +1,12 @@
-import { PathStateEnum } from "./PathStateEnum";
+import { InfoWindow } from "./InfoWindow";
 
-export interface Path {
-  name: string;
-  description: string;
-  category: string;
-  activities: string[];
-  suitability: string[];
-  attractions: string[];
-  tags: string[];
-  path: google.maps.LatLngLiteral[];
-  entryPoints: google.maps.LatLngLiteral[];
-  difficulty: string;
-  length: number;
-  elevationGain: number;
-  routeType: string;
-  state: PathStateEnum;
-  specialStateText?: string;
-  iconClass: string;
+export interface Path extends InfoWindow {
+  description?: string;
+  displayName?: string|null;
+  iconBackgroundColor?: string|null;
+  iconColor?: string|null;
+  iconURI?: string|null;
+  id?: string|null;
+  options?: google.maps.PolylineOptions|null;
+  segments?: google.maps.LatLngLiteral[];
 }

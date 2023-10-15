@@ -12,9 +12,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
-import { CoordinatesToStringPipe } from './pipes/coordinates-to-string.pipe';
 import { PipesModule } from './pipes/pipes.module';
 import { ColorPickerModule } from 'nxt-color-picker';
+import { ToastrModule } from 'ngx-toastr';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @NgModule({
   declarations: [
@@ -35,7 +37,16 @@ import { ColorPickerModule } from 'nxt-color-picker';
     FormsModule,
     ReactiveFormsModule,
     PipesModule,
-    ColorPickerModule
+    ColorPickerModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    ToastrModule.forRoot({
+      preventDuplicates: false,
+      progressBar: true,
+      countDuplicates: true,
+      extendedTimeOut: 3000,
+      positionClass: 'toast-bottom-right',
+    })
   ],
   providers: [],
   bootstrap: [AppComponent]

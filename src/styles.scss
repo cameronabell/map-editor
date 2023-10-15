@@ -4,16 +4,16 @@
 @include mat.core();
 
 $accent-palette: (
-  50: #f6ece5,
-  100: #e1d1c7,
-  200: #c9b2a6,
-  300: #b09483,
-  400: #9d7b68,
-  500: #89644d,
-  600: #7d5a46,
-  700: #6d4d3c,
-  800: #5e4034,
-  900: #4e3329,
+  50: #e1f6f1,
+  100: #b5e9da,
+  200: #83dcc3,
+  300: #53ccab,
+  400: #36be99,
+  500: #27b18a,
+  600: #22a37c,
+  700: #1d926d,
+  800: #17815f,
+  900: #126443,
   contrast: (
     50: rgba(black, 0.87),
     100: rgba(black, 0.87),
@@ -29,16 +29,16 @@ $accent-palette: (
 );
 
 $primary-palette: (
-  50: #e5f0f7,
-  100: #c6d8e1,
-  200: #a6bdc9,
-  300: #85a2b1,
-  400: #6c8d9f,
-  500: #537a8d,
-  600: #476b7c,
-  700: #395766,
-  800: #2b4451,
-  900: #1b2f3a,
+  50: #e0f2f6,
+  100: #b2deea,
+  200: #83c9dc,
+  300: #54b4d1,
+  400: #25a6cd,
+  500: #0098c9,
+  600: #008bbc,
+  700: #0079ab,
+  800: #006999,
+  900: #004b7a,
   contrast: (
     50: rgba(black, 0.87),
     100: rgba(black, 0.87),
@@ -53,8 +53,8 @@ $primary-palette: (
   )
 );
 
-$my-primary: mat.define-palette($primary-palette, 100);
-$my-accent: mat.define-palette($accent-palette, 100);
+$my-primary: mat.define-palette($primary-palette, 200);
+$my-accent: mat.define-palette($accent-palette, 200);
 
 // The "warn" palette is optional and defaults to red if not specified.
 $my-warn: mat.define-palette(mat.$red-palette);

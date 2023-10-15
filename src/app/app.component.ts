@@ -1,14 +1,17 @@
-import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { GoogleMap, MapInfoWindow } from '@angular/google-maps';
-import { Observable, catchError, map, of } from 'rxjs';
+import { ToastrService } from 'ngx-toastr';
 import { SubSink } from 'subsink';
+import { InfoWindowOptions, INFO_WINDOW_OPEN_OPTIONS, INFO_WINDOW_OPTIONS } from './configs/info-window-options';
 import { MAP_OPTIONS } from './configs/map-options';
+import { MARKER_OPTIONS } from './configs/marker-options';
+import { PolygonOptions, POLYGON_OPTIONS } from './configs/polygon-options';
+import { PolylineOptions, POLYLINE_OPTIONS } from './configs/polyline-options';
 import { Boundary } from './models/Boundary';
 import { EditModesEnum } from './models/EditModesEnum';
-import { Location } from './models/Location';
 import { Path } from './models/Path';
+import { PointOfInterest } from './models/PointOfInterest';
 
 @Component({
   selector: 'app-root',
@@ -19,38 +22,32 @@ import { Path } from './models/Path';
 export class AppComponent implements OnInit {
   @ViewChild(GoogleMap, { static: false }) map: GoogleMap;
   @ViewChild(MapInfoWindow, { static: false }) infoWindow: MapInfoWindow;
+  private subs = new SubSink();
 
+  loading = false;
   title = 'map-tools';
-  apiLoaded: Observable<boolean>;
+  mapForm: FormGroup;
   editMode: EditModesEnum | null = null;
   EditModesEnum = EditModesEnum;
-  zoom = 14;
-  center: google.maps.LatLngLiteral = { lat: 38.084976, lng: -85.767326 };
-  options: google.maps.MapOptions = MAP_OPTIONS;
-  polylineOptions = {
-    strokeColor: 'grey',
-    strokeOpacity: 1,
-    strokeWeight: 5,
-    clickable: true,
-    draggable: false,
-    editable: false,
-    zIndex: 10,
-  };
-  boundaryOptions = {
-    strokeColor: 'grey',
-    strokeOpacity: 1,
-    strokeWeight: 5,
-    clickable: true,
-    draggable: false,
-    editable: false,
-    zIndex: 1,
-  };
-  markerOptions: google.maps.MarkerOptions = {
-    draggable: false,
-    zIndex: 20,
-    animation: google.maps.Animation.DROP
-  };
+  point: google.maps.LatLngLiteral = null;
+  segments: google.maps.LatLngLiteral[] = [];
+  color = "#000"
 
+  zoom = 14;
+  center: google.maps.LatLng;
+  options: google.maps.MapOptions = MAP_OPTIONS;
+  infoWindowTitle = '';
+  infoWindowContent = '';
+  infoWindowOptions: google.maps.InfoWindowOptions;
+  infoWindowOpenOptions: google.maps.InfoWindowOpenOptions = INFO_WINDOW_OPEN_OPTIONS;
+
+  pointsOfInterest: PointOfInterest[] = [];
+  paths: Path[] = [];
+  boundaries: Boundary[] = [];
+
+  pointOfInterestOptions: google.maps.MarkerOptions = MARKER_OPTIONS;
+  pathOptions: google.maps.PolylineOptions = POLYLINE_OPTIONS;
+  boundaryOptions: google.maps.PolygonOptions = POLYGON_OPTIONS;
   linePointOptions: google.maps.MarkerOptions = {
     draggable: false,
     zIndex: 20,
@@ -60,86 +57,49 @@ export class AppComponent implements OnInit {
       fillColor: '#000',
     }
   };
-  linePoints: google.maps.LatLngLiteral[] = [];
-  paths: Path[] = [];
-  locations: Location[] = [];
-  boundaries: Boundary[] = [];
-
-  marker: google.maps.LatLngLiteral = null;
-  line: google.maps.LatLngLiteral[] = [];
-  polygon: google.maps.LatLngLiteral[] = [];
-  color = "#000"
-
-  mapForm: FormGroup;
-  categoryOptions: string[] = [
-    'Horine Reservation',
-    'Tom Wallace',
-    'Paul Yost',
-    'Scott\'s Gap'
-  ];
-  activityOptions: string[] = [
-    'Walking',
-    'Cycling',
-    'Running',
-    'Swimming',
-    'Hiking',
-  ];
-  suitabilityOptions: string[] = [
-    'Dog Friendly',
-    'Kid Friendly',
-    'Wheelchair Friendly',
-    'Stroller Friendly',
-    'Paved',
-    'Partially Paved',
-  ];
-  attractionOptions: string[] = [
-    'Waterfall',
-    'Views',
-    'Lake',
-    'River',
-    'Forest',
-    'Beach',
-    'Hot springs',
-    'Wildflowers',
-    'Wildlife',
-    'Cave',
-    'Historic site',
-    'Rails trails',
-    'City walk',
-    'Event'
-  ];
-  difficultyOptions: string[] = [
-    'Easy',
-    'Moderate',
-    'Hard'
-  ];
-  routeTypeOptions: string[] = [
-    'Loop',
-    'Out & back',
-    'Point to point'
-  ];
-  stateOptions: string[] = [
-    'Permanently Closed',
-    'Temporarily Closed',
-    'Partially Open',
-    'Open',
-    'Special'
-  ];
-
-  private subs = new SubSink();
 
   constructor(
-    private httpClient: HttpClient
-  ) {
-    this.apiLoaded = this.httpClient.jsonp('https://maps.googleapis.com/maps/api/js?key=AIzaSyB2ADavRj7KVrD4aipoTtTzxtYHCaGdbQs', 'callback')
-      .pipe(
-        map(() => true),
-        catchError(() => of(false))
-      );
-  }
+    private toastr: ToastrService
+  ) { }
 
   ngOnInit(): void {
     this.toggleMode(null);
+    this.getCurrentLocation();
+  }
+
+  getCurrentLocation() {
+    this.loading = true;
+
+    navigator.geolocation.getCurrentPosition(
+      (position: GeolocationPosition) => {
+        this.loading = false;
+
+        const point: google.maps.LatLngLiteral = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+
+        this.center = new google.maps.LatLng(point); //{ lat: 38.084976, lng: -85.767326 }
+        this.map.panTo(point);
+      },
+      (error) => {
+        this.loading = false;
+
+        if (error.PERMISSION_DENIED) {
+          this.toastr.error("Couldn't get your location", 'Permission denied');
+        } else if (error.POSITION_UNAVAILABLE) {
+          this.toastr.error(
+            "Couldn't get your location",
+            'Position unavailable'
+          );
+        } else if (error.TIMEOUT) {
+          this.toastr.error("Couldn't get your location", 'Timed out');
+        } else {
+          this.toastr.error(error.message, `Error: ${error.code}`);
+        }
+      },
+      { enableHighAccuracy: true }
+    );
   }
 
   zoomIn() {
@@ -153,20 +113,18 @@ export class AppComponent implements OnInit {
   click(event: google.maps.MapMouseEvent | google.maps.IconMouseEvent) {
     switch (this.editMode) {
       case EditModesEnum.MARKER:
-        this.marker = event.latLng.toJSON();
-        this.mapForm.get('latLng').patchValue(JSON.stringify(this.marker));
-        break;
-      case EditModesEnum.POLYGON:
-        this.polygon.push(event.latLng.toJSON());
-        this.polygon = JSON.parse(JSON.stringify(this.polygon));
-        this.mapForm.get('path').patchValue(JSON.stringify(this.polygon));
-        this.linePoints.push(this.polygon[this.polygon.length - 1]);
+        this.point = event.latLng.toJSON();
+        this.mapForm.get('location').patchValue(JSON.stringify(this.point));
         break;
       case EditModesEnum.LINE:
-        this.line.push(event.latLng.toJSON());
-        this.line = JSON.parse(JSON.stringify(this.line));
-        this.mapForm.get('path').patchValue(JSON.stringify(this.line));
-        this.linePoints.push(this.line[this.line.length - 1]);
+        this.segments.push(event.latLng.toJSON());
+        this.segments = JSON.parse(JSON.stringify(this.segments));
+        this.mapForm.get('segments').patchValue(JSON.stringify(this.segments));
+        break;
+      case EditModesEnum.POLYGON:
+        this.segments.push(event.latLng.toJSON());
+        this.segments = JSON.parse(JSON.stringify(this.segments));
+        this.mapForm.get('segments').patchValue(JSON.stringify(this.segments));
         break;
     }
   }
@@ -178,61 +136,44 @@ export class AppComponent implements OnInit {
   undo() {
     switch (this.editMode) {
       case EditModesEnum.MARKER:
-        this.marker = null;
-        this.mapForm.get('latLng').reset();
+        this.point = null;
+        this.mapForm.get('location').reset();
         break;
       case EditModesEnum.POLYGON:
-        this.polygon.splice(this.polygon.length - 1);
-        this.polygon = JSON.parse(JSON.stringify(this.polygon));
-        this.mapForm.get('path').patchValue(JSON.stringify(this.polygon));
-        this.linePoints.splice(this.linePoints.length - 1);
-        this.linePoints = JSON.parse(JSON.stringify(this.linePoints));
-        break;
       case EditModesEnum.LINE:
-        this.line.splice(this.line.length - 1);
-        this.line = JSON.parse(JSON.stringify(this.line));
-        this.mapForm.get('path').patchValue(JSON.stringify(this.line));
-        this.linePoints.splice(this.linePoints.length - 1);
-        this.linePoints = JSON.parse(JSON.stringify(this.linePoints));
+        this.segments.splice(this.segments.length - 1);
+        this.segments = JSON.parse(JSON.stringify(this.segments));
+        this.mapForm.get('segments').patchValue(JSON.stringify(this.segments));
         break;
     }
   }
 
   save() {
-    console.log(this.mapForm.valid)
     if (this.mapForm.valid) {
       switch (this.editMode) {
         case EditModesEnum.MARKER:
-          let locations: Location[] = JSON.parse(localStorage.getItem('locations')) ?? [];
-          const location: Location = {
-            name: this.mapForm.get('name')?.value,
+          let pointsOfInterest: PointOfInterest[] = JSON.parse(localStorage.getItem('pointsOfInterest')) ?? [];
+          const pointOfInterest: PointOfInterest = {
+            id: this.createSlug(this.mapForm.get('displayName')?.value),
+            displayName: this.mapForm.get('displayName')?.value,
             description: this.mapForm.get('description')?.value,
-            category: this.mapForm.get('category')?.value,
-            activities: this.mapForm.get('activities')?.value,
-            suitability: this.mapForm.get('suitability')?.value,
-            attractions: this.mapForm.get('attractions')?.value,
-            tags: this.mapForm.get('tags')?.value,
-            latLng: this.marker,
-            address: this.mapForm.get('address')?.value,
-            city: this.mapForm.get('city')?.value,
-            state: this.mapForm.get('state')?.value,
-            zip: this.mapForm.get('zip')?.value,
-            iconClass: this.mapForm.get('iconClass')?.value
+            location: this.point,
+            iconColor: this.mapForm.get('iconColor')?.value,
+            infoWindowOptions: InfoWindowOptions(this.point, new google.maps.Size(0, -37))
           }
-          locations.push(location);
-          localStorage.setItem('locations', JSON.stringify(locations));
+          pointsOfInterest.push(pointOfInterest);
+          localStorage.setItem('pointsOfInterest', JSON.stringify(pointsOfInterest));
           break;
         case EditModesEnum.POLYGON:
           let boundaries: Boundary[] = JSON.parse(localStorage.getItem('boundaries')) ?? [];
           const boundary: Boundary = {
-            name: this.mapForm.get('name')?.value,
+            id: this.createSlug(this.mapForm.get('displayName')?.value),
+            displayName: this.mapForm.get('displayName')?.value,
             description: this.mapForm.get('description')?.value,
-            category: this.mapForm.get('category')?.value,
-            activities: this.mapForm.get('activities')?.value,
-            suitability: this.mapForm.get('suitability')?.value,
-            attractions: this.mapForm.get('attractions')?.value,
-            tags: this.mapForm.get('tags')?.value,
-            paths: this.polygon
+            segments: this.segments,
+            options: PolygonOptions(this.mapForm.get('iconColor')?.value),
+            iconColor: this.mapForm.get('iconColor')?.value,
+            infoWindowOptions: InfoWindowOptions(this.segments[Math.floor(this.segments.length / 2)], new google.maps.Size(0, 0))
           }
           boundaries.push(boundary);
           localStorage.setItem('boundaries', JSON.stringify(boundaries));
@@ -240,22 +181,13 @@ export class AppComponent implements OnInit {
         case EditModesEnum.LINE:
           let paths: Path[] = JSON.parse(localStorage.getItem('paths')) ?? [];
           const path: Path = {
-            name: this.mapForm.get('name')?.value,
+            id: this.createSlug(this.mapForm.get('displayName')?.value),
+            displayName: this.mapForm.get('displayName')?.value,
             description: this.mapForm.get('description')?.value,
-            category: this.mapForm.get('category')?.value,
-            activities: this.mapForm.get('activities')?.value,
-            suitability: this.mapForm.get('suitability')?.value,
-            attractions: this.mapForm.get('attractions')?.value,
-            tags: this.mapForm.get('tags')?.value,
-            path: this.line,
-            entryPoints: this.mapForm.get('entryPoints')?.value,
-            difficulty: this.mapForm.get('difficulty')?.value,
-            length: this.mapForm.get('length')?.value,
-            elevationGain: this.mapForm.get('elevationGain')?.value,
-            routeType: this.mapForm.get('routeType')?.value,
-            state: this.mapForm.get('state')?.value,
-            specialStateText: this.mapForm.get('specialStateText')?.value,
-            iconClass: this.mapForm.get('iconClass')?.value,
+            segments: this.segments,
+            options: PolylineOptions(this.mapForm.get('iconColor')?.value),
+            iconColor: this.mapForm.get('iconColor')?.value,
+            infoWindowOptions: InfoWindowOptions(this.segments[Math.floor(this.segments.length / 2)], new google.maps.Size(0, 0))
           }
           paths.push(path);
           localStorage.setItem('paths', JSON.stringify(paths));
@@ -265,43 +197,25 @@ export class AppComponent implements OnInit {
     }
   }
 
+  createSlug(str: string): string {
+    return str
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]+/g, '');
+  }
+
   delete() {
     localStorage.clear();
+    this.pointsOfInterest = [];
+    this.paths = [];
+    this.boundaries = [];
   }
 
-  openInfoWindowForPath(path: Path, event: any) {
-    this.infoWindow.options = {
-      content: `
-        <h3>${path.name}</h3>
-        <p>${path.description}</p>
-      `,
-      position: event.latLng,
-      pixelOffset: null
-    };
-    this.infoWindow.open();
-  }
-
-  openInfoWindowForBoundary(boundary: Boundary, event: any) {
-    this.infoWindow.options = {
-      content: `
-        <h3>${boundary.name}</h3>
-        <p>${boundary.description}</p>
-      `,
-      position: event.latLng,
-      pixelOffset: null
-    };
-    this.infoWindow.open();
-  }
-
-  openInfoWindowForLocation(location: Location) {
-    this.infoWindow.options = {
-      content: `
-        <h3>${location.name}</h3>
-        <p>${location.description}</p>
-      `,
-      position: location.latLng,
-      pixelOffset: new google.maps.Size(0, -37)
-    };
+  openInfoWindow(data: any, event?: any) {
+    this.infoWindowTitle = data.displayName;
+    this.infoWindowContent = data.description;
+    this.infoWindowOptions = data.infoWindowOptions ?? INFO_WINDOW_OPTIONS;
+    if (event) this.infoWindowOptions.position = event.latLng.toJSON();
     this.infoWindow.open();
   }
 
@@ -314,7 +228,7 @@ export class AppComponent implements OnInit {
 
     switch (mode) {
       case EditModesEnum.MARKER:
-        this.initLocationForm();
+        this.initPointOfInterestForm();
         break;
       case EditModesEnum.POLYGON:
         this.initBoundaryForm();
@@ -324,80 +238,93 @@ export class AppComponent implements OnInit {
         break;
     }
 
-    this.marker = null;
-    this.polygon = [];
-    this.line = [];
-    this.linePoints = [];
+    this.point = null;
+    this.segments = [];
     this.editMode = mode;
   }
 
   getFromCache() {
     this.paths = JSON.parse(localStorage.getItem('paths')) ?? [];
     this.boundaries = JSON.parse(localStorage.getItem('boundaries')) ?? [];
-    this.locations = JSON.parse(localStorage.getItem('locations')) ?? [];
+    this.pointsOfInterest = JSON.parse(localStorage.getItem('pointsOfInterest')) ?? [];
+  }
+
+  initPointOfInterestForm() {
+    this.mapForm = new FormGroup({
+      displayName: new FormControl('', [Validators.required]),
+      description: new FormControl('', [Validators.required]),
+      location: new FormControl(null),
+      iconColor: new FormControl('', [Validators.required]),
+    });
   }
 
   initPathForm() {
     this.mapForm = new FormGroup({
-      name: new FormControl('', [Validators.required]),
+      displayName: new FormControl('', [Validators.required]),
       description: new FormControl('', [Validators.required]),
-      category: new FormControl('', [Validators.required]),
-      activities: new FormControl([], [Validators.required]),
-      suitability: new FormControl([], [Validators.required]),
-      attractions: new FormControl([], [Validators.required]),
-      tags: new FormControl([]),
-      entryPoints: new FormControl('', [Validators.required]),
-      difficulty: new FormControl('', [Validators.required]),
-      length: new FormControl(0, [Validators.required]),
-      elevationGain: new FormControl(0, [Validators.required]),
-      routeType: new FormControl('', [Validators.required]),
-      state: new FormControl('', [Validators.required]),
-      specialStateText: new FormControl(''),
-      iconClass: new FormControl(''),
-      path: new FormControl([]),
-    });
-    this.subs.sink = this.mapForm.get('path').valueChanges.subscribe((value) => {
-      console.log(value);
-      this.line = JSON.parse(value);
-      this.linePoints = this.line;
-    });
-  }
-
-  initLocationForm() {
-    this.mapForm = new FormGroup({
-      name: new FormControl('', [Validators.required]),
-      description: new FormControl('', [Validators.required]),
-      category: new FormControl('', [Validators.required]),
-      activities: new FormControl([], [Validators.required]),
-      suitability: new FormControl([], [Validators.required]),
-      attractions: new FormControl([], [Validators.required]),
-      tags: new FormControl([]),
-      address: new FormControl(''),
-      city: new FormControl(''),
-      state: new FormControl(0),
-      zip: new FormControl(0),
-      iconClass: new FormControl(''),
-      latLng: new FormControl(null)
-    });
-    this.subs.sink = this.mapForm.get('latLng').valueChanges.subscribe((value) => {
-      this.marker = JSON.parse(value);
+      segments: new FormControl([]),
+      iconColor: new FormControl('', [Validators.required]),
     });
   }
 
   initBoundaryForm() {
     this.mapForm = new FormGroup({
-      name: new FormControl('', [Validators.required]),
+      displayName: new FormControl('', [Validators.required]),
       description: new FormControl('', [Validators.required]),
-      category: new FormControl('', [Validators.required]),
-      activities: new FormControl([], [Validators.required]),
-      suitability: new FormControl([], [Validators.required]),
-      attractions: new FormControl([], [Validators.required]),
-      tags: new FormControl([]),
-      path: new FormControl([]),
+      segments: new FormControl([]),
+      iconColor: new FormControl('', [Validators.required]),
     });
-    this.subs.sink = this.mapForm.get('path').valueChanges.subscribe((value) => {
-      this.polygon = JSON.parse(value);
-      this.linePoints = this.polygon;
-    });
+  }
+
+  colorChange(value: any) {
+    this.color = value;
+    this.mapForm.get('iconColor').patchValue(value);
+  }
+
+  onEditClick(event: any) {
+    let match: any = this.pointsOfInterest.find(p => p.displayName === event);
+    if (match) {
+      this.toggleMode(EditModesEnum.MARKER);
+      this.point = match.location;
+      this.mapForm.get('location').patchValue(JSON.stringify(match.location));
+    } else {
+      match = this.paths.find(p => p.displayName === event);
+      if (match) {
+        this.toggleMode(EditModesEnum.LINE);
+      } else {
+        match = this.boundaries.find(p => p.displayName === event);
+        if (match) {
+          this.toggleMode(EditModesEnum.POLYGON);
+        }
+      }
+      this.segments = match.segments;
+      this.mapForm.get('segments').patchValue(JSON.stringify(match.segments));
+    }
+
+    this.mapForm.get('displayName').patchValue(match.displayName);
+    this.mapForm.get('description').patchValue(match.description);
+    this.mapForm.get('iconColor').patchValue(match.iconColor);
+    this.color = match.iconColor;
+  }
+
+  onDeleteClick(event: any) {
+    let match: any = this.pointsOfInterest.findIndex(p => p.displayName === event);
+    if (match >= 0) {
+      this.pointsOfInterest.splice(match, 1);
+      localStorage.setItem('pointsOfInterest', JSON.stringify(this.pointsOfInterest));
+    } else {
+      match = this.paths.findIndex(p => p.displayName === event);
+      if (match >= 0) {
+        this.paths.splice(match, 1);
+        localStorage.setItem('paths', JSON.stringify(this.paths));
+      } else {
+        match = this.boundaries.findIndex(p => p.displayName === event);
+        if (match >= 0) {
+          this.boundaries.splice(match, 1);
+          localStorage.setItem('boundaries', JSON.stringify(this.boundaries));
+        }
+      }
+    }
+    this.infoWindow.close();
   }
 }

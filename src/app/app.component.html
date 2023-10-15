@@ -1,36 +1,49 @@
-<div *ngIf="apiLoaded | async">
-  <div>
-    <google-map
-      width="100%"
-      height="100vh"
-      [zoom]="zoom"
-      [center]="center"
-      [options]="options"
-      (mapClick)="click($event)"
-    >
-      <div *ngIf="editMode === null">
-        <div *ngIf="locations.length > 0">
-          <map-marker *ngFor="let location of locations" [position]="location.latLng" [options]="markerOptions" (mapClick)="openInfoWindowForLocation(location)"></map-marker>
-        </div>
-        <div *ngIf="paths.length > 0">
-          <map-polyline *ngFor="let path of paths" [path]="path.path" [options]="polylineOptions" (polylineClick)="openInfoWindowForPath(path, $event)"></map-polyline>
-        </div>
-        <div *ngIf="boundaries.length > 0">
-          <map-polygon *ngFor="let boundary of boundaries" [paths]="boundary.paths" [options]="boundaryOptions" (polygonClick)="openInfoWindowForBoundary(boundary, $event)"></map-polygon>
-        </div>
-        <map-info-window></map-info-window>
-      </div>
-      <div *ngIf="editMode !== null">
-        <div *ngIf="linePoints.length > 0">
-          <map-marker *ngFor="let point of linePoints" [position]="point" [options]="linePointOptions"></map-marker>
-        </div>
-        <map-marker *ngIf="marker" [position]="marker" [options]="markerOptions"></map-marker>
-        <map-polyline *ngIf="line.length > 0" [path]="line" [options]="polylineOptions"></map-polyline>
-        <map-polygon *ngIf="polygon.length > 0" [paths]="polygon" [options]="polylineOptions"></map-polygon>
-      </div>
-    </google-map>
+<div *ngIf="loading" class="loading-container">
+  <div class="loading flex column align-center justify-center gap">
+    <mat-spinner></mat-spinner>
+    <h1>Getting your location...</h1>
   </div>
 </div>
+<google-map
+  width="100%"
+  height="100vh"
+  [zoom]="zoom"
+  [center]="center"
+  [options]="options"
+  (mapClick)="click($event)"
+>
+  <div *ngIf="editMode === null">
+    <div *ngIf="pointsOfInterest.length > 0">
+      <map-marker *ngFor="let poi of pointsOfInterest" [position]="poi.location" [options]="poi.options ?? pointOfInterestOptions" (mapClick)="openInfoWindow(poi)"></map-marker>
+    </div>
+    <div *ngIf="paths.length > 0">
+      <map-polyline *ngFor="let path of paths" [path]="path.segments" [options]="path.options ?? pathOptions" (polylineClick)="openInfoWindow(path, $event)"></map-polyline>
+    </div>
+    <div *ngIf="boundaries.length > 0">
+      <map-polygon *ngFor="let boundary of boundaries" [paths]="boundary.segments" [options]="boundary.options ?? boundaryOptions" (polygonClick)="openInfoWindow(boundary, $event)"></map-polygon>
+    </div>
+    <map-info-window [options]="infoWindowOptions">
+      <h3>{{ infoWindowTitle }}</h3>
+      <p>{{ infoWindowContent }}</p>
+      <div class="flex gap align-center justify-end">
+        <button mat-icon-button (click)="onEditClick(infoWindowTitle)">
+          <mat-icon class="material-icons-round" fontIcon="edit"></mat-icon>
+        </button>
+        <button mat-icon-button (click)="onDeleteClick(infoWindowTitle)">
+          <mat-icon class="material-icons-round" fontIcon="delete"></mat-icon>
+        </button>
+      </div>
+    </map-info-window>
+  </div>
+  <div *ngIf="editMode !== null">
+    <div *ngIf="segments.length > 0">
+      <map-marker *ngFor="let point of segments" [position]="point" [options]="linePointOptions"></map-marker>
+    </div>
+    <map-marker *ngIf="point" [position]="point" [options]="pointOfInterestOptions"></map-marker>
+    <map-polyline *ngIf="editMode === EditModesEnum.LINE && segments.length > 0" [path]="segments" [options]="pathOptions"></map-polyline>
+    <map-polygon *ngIf="editMode !== EditModesEnum.LINE && segments.length > 0" [paths]="segments" [options]="boundaryOptions"></map-polygon>
+  </div>
+</google-map>
 
 <div class="flex align-center justify-center gap button-menu" draggable="true">
   <button mat-fab (click)="zoomIn()">
@@ -64,122 +77,22 @@
       <h2 *ngIf="editMode === EditModesEnum.POLYGON">Boundary Details</h2>
     </div>
     <div class="flex column overflow-y fields-wrapper">
-      <mat-form-field *ngIf="editMode === EditModesEnum.MARKER">
+      <mat-form-field>
         <mat-label>Coordinates</mat-label>
-        <input matInput formControlName="latLng" />
+        <input matInput [formControlName]="editMode === EditModesEnum.MARKER ? 'location' : 'segments'" />
       </mat-form-field>
       <mat-form-field>
         <mat-label>Color</mat-label>
-        <input matInput [(nxtColor)]="color" position="bottom" [(nxtColor)]="color" [value]="color"/>
+        <input matInput position="bottom" [nxtColor]="color" [value]="color" (nxtColorChange)="colorChange($event)" />
         <mat-icon matPrefix class="material-icons-round" fontIcon="palette" [style.color]="color"></mat-icon>
-      </mat-form-field>
-      <mat-form-field *ngIf="editMode !== EditModesEnum.MARKER">
-        <mat-label>Coordinates</mat-label>
-        <input matInput formControlName="path" />
       </mat-form-field>
       <mat-form-field>
           <mat-label>Name</mat-label>
-          <input matInput formControlName="name" />
+          <input matInput formControlName="displayName" />
         </mat-form-field>
         <mat-form-field>
           <mat-label>Description</mat-label>
           <input matInput formControlName="description" />
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.LINE">
-          <mat-label>Entry Points</mat-label>
-          <mat-select formControlName="entryPoints">
-            <mat-option *ngFor="let option of line" [value]="option">
-              {{option | coordinatesToString}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field>
-          <mat-label>Category</mat-label>
-          <mat-select formControlName="category">
-            <mat-option *ngFor="let option of categoryOptions" [value]="option">
-              {{option}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field>
-          <mat-label>Activities</mat-label>
-          <mat-select formControlName="activities" multiple>
-            <mat-option *ngFor="let option of activityOptions" [value]="option">
-              {{option}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field>
-          <mat-label>Suitability</mat-label>
-          <mat-select formControlName="suitability" multiple>
-            <mat-option *ngFor="let option of suitabilityOptions" [value]="option">
-              {{option}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field>
-          <mat-label>Attractions</mat-label>
-          <mat-select formControlName="attractions" multiple>
-            <mat-option *ngFor="let option of attractionOptions" [value]="option">
-              {{option}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.LINE">
-          <mat-label>Difficulty</mat-label>
-          <mat-select formControlName="difficulty">
-            <mat-option *ngFor="let option of difficultyOptions" [value]="option">
-              {{option}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.LINE">
-          <mat-label>Length</mat-label>
-          <input matInput formControlName="length" />
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.LINE">
-          <mat-label>Elevation Gain</mat-label>
-          <input matInput formControlName="elevationGain" />
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.LINE">
-          <mat-label>Route Type</mat-label>
-          <mat-select formControlName="routeType">
-            <mat-option *ngFor="let option of routeTypeOptions" [value]="option">
-              {{option}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.LINE">
-          <mat-label>State</mat-label>
-          <mat-select formControlName="state">
-            <mat-option *ngFor="let option of stateOptions" [value]="option">
-              {{option}}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.LINE">
-          <mat-label>Special Notice</mat-label>
-          <input matInput formControlName="specialStateText" />
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.LINE || editMode === EditModesEnum.MARKER">
-          <mat-label>Icon Class</mat-label>
-          <input matInput formControlName="iconClass" />
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.MARKER">
-          <mat-label>Address</mat-label>
-          <input matInput formControlName="address" />
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.MARKER">
-          <mat-label>City</mat-label>
-          <input matInput formControlName="city" />
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.MARKER">
-          <mat-label>State</mat-label>
-          <input matInput formControlName="state" />
-        </mat-form-field>
-        <mat-form-field *ngIf="editMode === EditModesEnum.MARKER">
-          <mat-label>Zip</mat-label>
-          <input matInput formControlName="zip" />
         </mat-form-field>
     </div>
     <div class="flex gap form-btns align-center justify-center">

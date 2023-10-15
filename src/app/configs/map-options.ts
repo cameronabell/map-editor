@@ -1,7 +1,7 @@
-export const MAP_OPTIONS = {
+export const MAP_OPTIONS: google.maps.MapOptions = {
   mapTypeId: 'terrain',
   zoomControl: false,
-  scrollwheel: false,
+  scrollwheel: true,
   disableDoubleClickZoom: true,
   maxZoom: 15,
   minZoom: 8,
