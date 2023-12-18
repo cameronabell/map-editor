@@ -177,3 +177,15 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 .height-50 {
   height: 50%;
 }
+
+/* GOOGLE MAP OVERRIDES */
+.gm-style .gm-style-iw-c {
+  border-radius: 8px;
+  overflow: visible;
+  .gm-style-iw-d {
+    overflow: visible;
+  }
+  .gm-ui-hover-effect {
+    display: none !important;
+  }
+}
