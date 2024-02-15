@@ -1,9 +1,12 @@
-<div *ngIf="loading" class="loading-container">
-  <div class="loading flex column align-center justify-center gap">
-    <mat-spinner></mat-spinner>
-    <h1>Getting your location...</h1>
+@if (loading) {
+  <div class="loading-container">
+    <div class="loading flex column align-center justify-center gap">
+      <mat-spinner></mat-spinner>
+      <h1>Getting your location...</h1>
+    </div>
   </div>
-</div>
+}
+
 
 <google-map
   width="100%"
@@ -13,104 +16,148 @@
   [options]="options"
   (mapClick)="click($event)"
 >
-  <div *ngIf="editMode === null">
-    <div *ngIf="pointsOfInterest.length > 0">
+  @if (editMode === null) {
+    @if (pointsOfInterest.length > 0) {
       <map-marker *ngFor="let poi of pointsOfInterest" [position]="poi.location" [options]="poi.options ?? pointOfInterestOptions" (mapClick)="openInfoWindow(poi)"></map-marker>
-    </div>
-    <div *ngIf="paths.length > 0">
+    }
+    @if (paths.length > 0) {
       <map-polyline *ngFor="let path of paths" [path]="path.segments" [options]="path.options ?? pathOptions" (polylineClick)="openInfoWindow(path, $event)"></map-polyline>
-    </div>
-    <div *ngIf="boundaries.length > 0">
+    }
+    @if (boundaries.length > 0) {
       <map-polygon *ngFor="let boundary of boundaries" [paths]="boundary.segments" [options]="boundary.options ?? boundaryOptions" (polygonClick)="openInfoWindow(boundary, $event)"></map-polygon>
-    </div>
+    }
+
     <map-info-window [options]="infoWindowOptions">
       <div class="iw-wrapper">
         <div class="close-btn mat-elevation-z2">
-          <button mat-icon-button (click)="closeInfoWindow()">
+          <button type="button" title="Close" mat-icon-button (click)="closeInfoWindow()">
             <mat-icon class="material-icons-round" fontIcon="cancel"></mat-icon>
           </button>
         </div>
         <h3 class="iw-title">{{ infoWindowTitle }}</h3>
         <div class="iw-content" [innerHTML]="infoWindowContent | safeHtml"></div>
         <div class="iw-actions">
-          <button mat-icon-button (click)="onEditClick(infoWindowTitle)">
+          <button type="button" title="Edit" mat-icon-button (click)="onEditClick(infoWindowTitle)">
             <mat-icon class="material-icons-round" fontIcon="edit"></mat-icon>
           </button>
-          <button mat-icon-button (click)="onDeleteClick(infoWindowTitle)">
+          <button type="button" title="Delete" mat-icon-button (click)="onDeleteClick(infoWindowTitle)">
             <mat-icon class="material-icons-round" fontIcon="delete"></mat-icon>
           </button>
         </div>
       </div>
     </map-info-window>
-  </div>
-  <div *ngIf="editMode !== null">
-    <div *ngIf="segments.length > 0">
-      <map-marker *ngFor="let point of segments" [position]="point" [options]="linePointOptions"></map-marker>
-    </div>
-    <map-marker *ngIf="point" [position]="point" [options]="pointOfInterestOptions"></map-marker>
-    <map-polyline *ngIf="editMode === EditModesEnum.LINE && segments.length > 0" [path]="segments" [options]="pathOptions"></map-polyline>
-    <map-polygon *ngIf="editMode !== EditModesEnum.LINE && segments.length > 0" [paths]="segments" [options]="boundaryOptions"></map-polygon>
-  </div>
+  } @else {
+    @if (segments.length > 0) {
+      @for (point of segments; track point) {
+        <map-marker [position]="point" [options]="linePointOptions"></map-marker>
+      }
+    }
+    @if (point) {
+      <map-marker [position]="point" [options]="pointOfInterestOptions"></map-marker>
+    }
+    @if (editMode === EditModesEnum.LINE && segments.length > 0) {
+      <map-polyline [path]="segments" [options]="pathOptions"></map-polyline>
+    }
+    @if (editMode !== EditModesEnum.LINE && segments.length > 0) {
+      <map-polygon [paths]="segments" [options]="boundaryOptions"></map-polygon>
+    }
+  }
 </google-map>
 
 
 <div class="flex align-center justify-center gap button-menu" draggable="true">
-  <button mat-fab (click)="zoomIn()">
-    <mat-icon class="material-icons-round" fontIcon="add"></mat-icon>
-  </button>
-  <button mat-fab (click)="zoomOut()">
-    <mat-icon class="material-icons-round" fontIcon="remove"></mat-icon>
-  </button>
-  <button mat-fab (click)="undo()">
-    <mat-icon class="material-icons-round" fontIcon="undo"></mat-icon>
-  </button>
-  <button mat-fab (click)="toggleMode(EditModesEnum.MARKER)">
-    <mat-icon class="material-icons-round" fontIcon="place"></mat-icon>
-  </button>
-  <button mat-fab (click)="toggleMode(EditModesEnum.LINE)">
-    <mat-icon class="material-icons-round" fontIcon="polyline"></mat-icon>
-  </button>
-  <button mat-fab (click)="toggleMode(EditModesEnum.POLYGON)">
-    <mat-icon class="material-icons-round" fontIcon="pentagon"></mat-icon>
-  </button>
-  <button mat-fab (click)="delete()">
-    <mat-icon class="material-icons-round" fontIcon="delete"></mat-icon>
-  </button>
+    <button type="button" title="Zoom In" mat-fab (click)="zoomIn()">
+        <mat-icon class="material-icons-round" fontIcon="add"></mat-icon>
+    </button>
+    <button type="button" title="Zoom Out" mat-fab (click)="zoomOut()">
+        <mat-icon class="material-icons-round" fontIcon="remove"></mat-icon>
+    </button>
+    <button type="button" title="Toggle Dark Mode" mat-fab (click)="toggleDarkMode()">
+        <mat-icon class="material-icons-round"
+            [fontIcon]="darkMode ? 'light_mode' : 'dark_mode'"
+        />
+    </button>
+    <!-- <button type="button" title="Undo" mat-fab (click)="undo()">
+        <mat-icon class="material-icons-round" fontIcon="undo"></mat-icon>
+    </button> -->
+
+    <button
+        type="button"
+        mat-fab
+        title="Toggle Map Tools"
+        (click)="toggleMapTools()"
+    >
+        <mat-icon
+            class="material-icons-round"
+            [fontIcon]="expandedMapTools ? 'arrow_back' : 'build'"
+        />
+    </button>
+
+    @if (expandedMapTools) {
+        <button type="button" title="Create Marker" mat-fab (click)="toggleMode(EditModesEnum.MARKER)">
+        <mat-icon class="material-icons-round" fontIcon="place"></mat-icon>
+        </button>
+        <button type="button" title="Create Line" mat-fab (click)="toggleMode(EditModesEnum.LINE)">
+            <mat-icon class="material-icons-round" fontIcon="polyline"></mat-icon>
+        </button>
+        <button type="button" title="Create Boundary" mat-fab (click)="toggleMode(EditModesEnum.POLYGON)">
+            <mat-icon class="material-icons-round" fontIcon="pentagon"></mat-icon>
+        </button>
+        @if (pointsOfInterest?.length || paths?.length || boundaries?.length) {
+            <button type="button" title="Clear All" mat-fab (click)="clearAll()">
+                <mat-icon class="material-icons-round" fontIcon="clear"></mat-icon>
+            </button>
+        }
+    }
 </div>
 
-<div *ngIf="editMode !== null" [formGroup]="mapForm" class="form-fields">
+<div *ngIf="editMode !== null" [formGroup]="mapForm" class="form-fields" @fade>
   <div class="flex column height-100">
     <div class="flex align-center justify-center">
-      <h2 *ngIf="editMode === EditModesEnum.MARKER">Marker Details</h2>
-      <h2 *ngIf="editMode === EditModesEnum.LINE">Line Details</h2>
-      <h2 *ngIf="editMode === EditModesEnum.POLYGON">Boundary Details</h2>
+      <h2>
+        @if (editMode === EditModesEnum.MARKER) {
+          Marker Details
+        } @else if (editMode === EditModesEnum.LINE) {
+          Line Details
+        } @else {
+          Boundary Details
+        }
+      </h2>
     </div>
     <div class="flex column overflow-y fields-wrapper">
       <mat-form-field>
         <mat-label>Coordinates</mat-label>
-        <input matInput [formControlName]="editMode === EditModesEnum.MARKER ? 'location' : 'segments'" />
+        <input title="coordinates" matInput [formControlName]="editMode === EditModesEnum.MARKER ? 'location' : 'segments'" />
       </mat-form-field>
       <mat-form-field *ngIf="editMode === EditModesEnum.MARKER">
         <mat-label>Icon</mat-label>
         <mat-select formControlName="icon">
-          <mat-option>None</mat-option>
-          <mat-option *ngFor="let icon of icons" [value]="icon">
-            <mat-icon [class]="icon.class" [fontIcon]="icon.fontIcon"></mat-icon>
-          </mat-option>
+            @if (selectedIcon?.class) {
+                <mat-select-trigger>
+                    <mat-icon [class]="selectedIcon.class" [fontIcon]="selectedIcon.fontIcon" [ngStyle]="{ 'color': selectedColor }"/>
+                </mat-select-trigger>
+            }
+            <mat-option>None</mat-option>
+            @for (icon of icons; track icon.class) {
+                <mat-option [value]="icon">
+                    <mat-icon [class]="icon.class" [fontIcon]="icon.fontIcon"/>
+                </mat-option>
+            }
+
         </mat-select>
       </mat-form-field>
       <mat-form-field>
         <mat-label>Color</mat-label>
-        <input matInput position="bottom" [nxtColor]="color" [value]="color" (nxtColorChange)="colorChange($event)" />
-        <mat-icon matPrefix class="material-icons-round" fontIcon="palette" [style.color]="color"></mat-icon>
+        <input title="color" matInput position="bottom" [nxtColor]="color" [value]="color" (nxtColorChange)="colorChange($event)" />
+        <mat-icon matPrefix class="material-icons-round" fontIcon="palette" [style.color]="color"/>
       </mat-form-field>
       <mat-form-field>
           <mat-label>Name</mat-label>
-          <input matInput formControlName="displayName" />
+          <input title="name" matInput formControlName="displayName" />
         </mat-form-field>
         <mat-form-field>
           <mat-label>Description</mat-label>
-          <input matInput formControlName="description" />
+          <input title="description" matInput formControlName="description" />
         </mat-form-field>
     </div>
     <div class="flex gap form-btns align-center justify-center">

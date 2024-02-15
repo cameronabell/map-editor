@@ -1,3 +1,4 @@
+import { MarkerService } from './../../services/marker.service';
 import { Component, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { GoogleMap, MapInfoWindow } from '@angular/google-maps';
@@ -12,7 +13,7 @@ import { GoogleMapsService } from '../../services/google-maps.service';
 import { animate, style, transition, trigger } from '@angular/animations';
 
 @Component({
-    selector: 'app-google-map',
+    selector: 'app-google-map-v2',
     templateUrl: './google-map.component.html',
     styleUrls: ['./google-map.component.scss'],
     encapsulation: ViewEncapsulation.Emulated,
@@ -26,7 +27,7 @@ import { animate, style, transition, trigger } from '@angular/animations';
         ]),
     ],
 })
-export class GoogleMapComponent implements OnInit {
+export class GoogleMapV2Component implements OnInit {
     @ViewChild(GoogleMap, { static: false }) map: GoogleMap;
     @ViewChild(MapInfoWindow, { static: false }) infoWindow: MapInfoWindow;
     private subs = new SubSink();
@@ -66,6 +67,8 @@ export class GoogleMapComponent implements OnInit {
             fillColor: '#E32831',
         },
     };
+
+    markerEdit: google.maps.Marker = null;
 
     icons = [
         {
@@ -110,7 +113,8 @@ export class GoogleMapComponent implements OnInit {
 
     constructor(
         private toaster: ToastrService,
-        private mapService: GoogleMapsService
+        private mapService: GoogleMapsService,
+        private markerService: MarkerService
     ) {
         this.options = mapService.DARK_MAP_OPTIONS;
         this.infoWindowOpenOptions = mapService.INFO_WINDOW_OPEN_OPTIONS;
@@ -190,6 +194,23 @@ export class GoogleMapComponent implements OnInit {
                 this.mapForm
                     .get('location')
                     .patchValue(JSON.stringify(this.point));
+                if(!this.markerEdit) {
+                    this.markerEdit = new google.maps.Marker(
+                        this.markerService.setOptions(
+                            this.map.googleMap,
+                            this.point
+                        )
+                    );
+                    this.markerEdit.addListener('dragend', (dragEvent: any) => {
+                        this.point = dragEvent.latLng.toJSON();
+                        this.mapForm
+                            .get('location')
+                            .patchValue(JSON.stringify(this.point));
+                        this.markerEdit.setPosition(this.point);
+                    });
+                } else {
+                    this.markerEdit.setPosition(this.point);
+                }
                 break;
             case EditModesEnum.LINE:
             case EditModesEnum.POLYGON:
@@ -321,6 +342,8 @@ export class GoogleMapComponent implements OnInit {
         this.pointsOfInterest = [];
         this.paths = [];
         this.boundaries = [];
+        this.markerEdit?.setMap(null);
+        this.markerEdit = null;
     }
 
     openInfoWindow(data: any, event?: any) {
@@ -340,6 +363,8 @@ export class GoogleMapComponent implements OnInit {
         this.subs.unsubscribe();
 
         if (mode === null) {
+            this.markerEdit?.setMap(null);
+            this.markerEdit = null;
             this.getFromCache();
         }
 
@@ -348,9 +373,13 @@ export class GoogleMapComponent implements OnInit {
                 this.initPointOfInterestForm();
                 break;
             case EditModesEnum.POLYGON:
+                this.markerEdit?.setMap(null);
+                this.markerEdit = null;
                 this.initBoundaryForm();
                 break;
             case EditModesEnum.LINE:
+                this.markerEdit?.setMap(null);
+                this.markerEdit = null;
                 this.initPathForm();
                 break;
         }
@@ -385,6 +414,11 @@ export class GoogleMapComponent implements OnInit {
                 icon: icon?.fontIcon,
                 font: icon?.fontFamily,
             });
+            this.markerEdit?.setOptions(this.markerService.setIcon({
+                color: iconColor,
+                icon: icon?.fontIcon,
+                font: icon?.fontFamily,
+            }));
         });
     }
 

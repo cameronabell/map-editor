@@ -17,12 +17,12 @@ import { ColorPickerModule } from 'nxt-color-picker';
 import { ToastrModule } from 'ngx-toastr';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { GoogleMapComponent } from './components/google-map/google-map.component';
+import { GoogleMapV2Component } from './components/google-map-v2/google-map.component';
 
 @NgModule({
   declarations: [
     AppComponent,
-    GoogleMapComponent
+    GoogleMapV2Component
   ],
   imports: [
     BrowserModule,
